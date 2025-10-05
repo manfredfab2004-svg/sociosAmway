@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestor de Clientes Amway</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@700&family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- Supabase Client Library -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- Particles.js para el fondo animado -->
+    <script src="https://cdn.jsdelivr.net/npm/particles.js@2.0.0/particles.min.js"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #0d1117; color: #c9d1d9; }
+        #particles-js { position: fixed; width: 100%; height: 100%; z-index: -1; }
+        .main-title { font-family: 'Cormorant Garamond', serif; text-shadow: 0 0 15px rgba(255, 215, 0, 0.5), 0 0 20px rgba(0, 122, 201, 0.4); }
+        .logo-glow { filter: drop-shadow(0 0 15px rgba(255, 215, 0, 0.7)); animation: pulse-glow 4s ease-in-out infinite; }
+        .card { background-color: rgba(13, 17, 23, 0.75); border: 1px solid rgba(255, 255, 255, 0.1); backdrop-filter: blur(20px); border-radius: 1rem; border-top: 1px solid rgba(212, 175, 55, 0.3); box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37); }
+        .table-header { background-color: transparent; border-bottom: 1px solid rgba(212, 175, 55, 0.3); }
+        .btn { transition: all 0.3s ease; transform: scale(1); border-radius: 0.5rem; position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+        .btn:hover { transform: scale(1.03); }
+        .btn-primary { background: linear-gradient(45deg, #007ac9, #005a9e); border: 1px solid #0088e0; }
+        .btn-primary:hover { background: linear-gradient(45deg, #0088e0, #006ab8); box-shadow: 0 0 25px rgba(0, 122, 201, 0.7); }
+        .btn-danger:hover { box-shadow: 0 0 20px rgba(239, 68, 68, 0.6);}
+        .status-badge { padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; }
+        .badge-paid { background-color: rgba(34, 197, 94, 0.2); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.5); }
+        .badge-partial { background-color: rgba(250, 204, 21, 0.2); color: #facc15; border: 1px solid rgba(250, 204, 21, 0.5); }
+        .badge-pending { background-color: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.5); }
+        .input-field { background-color: rgba(13, 17, 23, 0.8); border: 1px solid #30363d; color: #f1f1f1; border-radius: 0.5rem; transition: all 0.3s ease; }
+        .input-field::placeholder { color: #8b949e; }
+        .input-field:focus { outline: none; border-color: #007ac9; box-shadow: 0 0 0 3px rgba(0, 122, 201, 0.3); }
+        .modal-overlay { background-color: rgba(0, 0, 0, 0.8); backdrop-filter: blur(8px); }
+        #clients-table-body tr { transition: background-color 0.2s ease, transform 0.2s ease; animation: slideUp 0.5s ease-out forwards; }
+        #clients-table-body tr:hover { background-color: rgba(0, 122, 201, 0.1); transform: translateY(-2px); }
+        .fade-in { animation: fadeIn 1s ease-in-out forwards; }
+        .fade-in-delay-1 { animation: fadeIn 1s ease-in-out 0.2s forwards; opacity: 0; }
+        .fade-in-delay-2 { animation: fadeIn 1s ease-in-out 0.4s forwards; opacity: 0; }
+        .fade-in-delay-3 { animation: fadeIn 1s ease-in-out 0.6s forwards; opacity: 0; }
+        .modal-scale-in { animation: scaleIn 0.3s ease-out forwards; }
+        .spinner { border: 2px solid #f3f3f3; border-top: 2px solid #007ac9; border-radius: 50%; width: 16px; height: 16px; animation: spin 1s linear infinite; margin-right: 8px; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes pulse-glow { 0%, 100% { filter: drop-shadow(0 0 10px rgba(255, 215, 0, 0.6)); } 50% { filter: drop-shadow(0 0 18px rgba(255, 215, 0, 0.9)); } }
+        @keyframes scaleIn { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="p-4 sm:p-6 md:p-8">
+    <div id="particles-js"></div>
+
+    <!-- Auth Overlay -->
+    <div id="auth-overlay" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-gray-900 bg-opacity-80">
+        <div class="card p-8 rounded-lg shadow-xl w-full max-w-sm fade-in">
+            <img src="https://ccodvaipvskwzbjhybxs.supabase.co/storage/v1/object/public/logos/imagen_2025-10-04_211334747.png" alt="Logo" class="mx-auto mb-6 h-20 rounded-full logo-glow">
+            
+            <div id="login-view">
+                <h2 class="text-3xl font-bold text-white text-center mb-2 main-title">Bienvenido</h2>
+                <p class="text-center text-gray-400 mb-6">Inicia sesión para continuar</p>
+                <form id="login-form" class="space-y-4">
+                    <input type="email" id="login-email" class="input-field w-full p-3 text-center" placeholder="Tu email" required>
+                    <input type="password" id="login-password" class="input-field w-full p-3 text-center" placeholder="Contraseña" required>
+                    <p id="login-error-message" class="text-red-500 text-sm text-center hidden"></p>
+                    <button type="submit" class="btn btn-primary w-full text-white font-bold py-3 px-4 h-12"><span>Entrar</span></button>
+                </form>
+                <p class="text-center text-xs text-gray-400 my-4">o</p>
+                <button id="show-magic-link" class="font-semibold text-blue-400 hover:text-blue-300 w-full text-center text-sm">Inicia sesión con un enlace mágico</button>
+                <p class="text-center text-sm text-gray-400 mt-6">¿No tienes cuenta? <button id="show-register" class="font-semibold text-blue-400 hover:text-blue-300">Regístrate aquí</button></p>
+            </div>
+
+            <div id="register-view" class="hidden">
+                <h2 class="text-3xl font-bold text-white text-center mb-2 main-title">Crear Cuenta</h2>
+                <p class="text-center text-gray-400 mb-6">Regístrate como Empresario Amway</p>
+                <form id="register-form" class="space-y-4">
+                    <input type="text" id="register-name" class="input-field w-full p-3 text-center" placeholder="Nombre Completo" required>
+                    <input type="text" id="register-amway-id" class="input-field w-full p-3 text-center" placeholder="Tu ID de Empresario Amway" required>
+                    <input type="email" id="register-email" class="input-field w-full p-3 text-center" placeholder="Tu email real" required>
+                    <input type="password" id="register-password" class="input-field w-full p-3 text-center" placeholder="Crea una contraseña" required>
+                    <p id="register-error-message" class="text-red-500 text-sm text-center hidden"></p>
+                    <button type="submit" class="btn btn-primary w-full text-white font-bold py-3 px-4 h-12"><span>Registrarme</span></button>
+                </form>
+                 <p class="text-center text-sm text-gray-400 mt-6">¿Ya tienes cuenta? <button id="show-login" class="font-semibold text-blue-400 hover:text-blue-300">Inicia sesión</button></p>
+            </div>
+
+            <div id="magic-link-view" class="hidden">
+                <h2 class="text-3xl font-bold text-white text-center mb-2 main-title">Enlace Mágico</h2>
+                <p class="text-center text-gray-400 mb-6">Te enviaremos un enlace a tu correo para iniciar sesión sin contraseña.</p>
+                <form id="magic-link-form" class="space-y-4">
+                    <input type="email" id="magic-link-email" class="input-field w-full p-3 text-center" placeholder="Tu email registrado" required>
+                    <p id="magic-link-error" class="text-red-500 text-sm text-center hidden"></p>
+                    <p id="magic-link-success" class="text-green-400 text-sm text-center hidden">¡Enlace enviado! Revisa tu correo.</p>
+                    <button type="submit" class="btn btn-primary w-full text-white font-bold py-3 px-4 h-12"><span>Enviar Enlace Mágico</span></button>
+                </form>
+                <p class="text-center text-sm text-gray-400 mt-6"><button id="show-login-from-magic" class="font-semibold text-blue-400 hover:text-blue-300">Volver a inicio de sesión</button></p>
+            </div>
+
+             <div class="mt-8 text-center text-xs text-gray-500"><p>Creado por Fabian Carvajal, Empresario de Amway</p></div>
+        </div>
+    </div>
+
+    <!-- Contenido Principal (Oculto hasta el login) -->
+    <div id="main-content" class="hidden">
+        <div class="max-w-7xl mx-auto">
+            <header class="text-center mb-10 relative fade-in"><button id="logout-button" class="btn btn-danger absolute top-0 right-0 mt-0 mr-0 sm:mt-4 sm:mr-4 text-white font-bold py-2 px-4 text-sm">Cerrar Sesión</button><img src="https://ccodvaipvskwzbjhybxs.supabase.co/storage/v1/object/public/logos/imagen_2025-10-04_211334747.png" alt="Logo" class="mx-auto mb-4 h-24 rounded-full logo-glow"><h1 id="welcome-title" class="text-5xl sm:text-6xl font-bold text-white main-title">Gestor de Clientes Amway</h1><p class="text-lg text-gray-400 mt-2">Panel de Administración de Ventas</p></header>
+            <main class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                 <div class="lg:col-span-1 fade-in-delay-1"><div class="card p-6"><h2 class="text-2xl font-bold text-white mb-6">Registrar Nueva Venta</h2><form id="add-client-form" class="space-y-4"><div><label for="client-name" class="block text-sm font-medium mb-1">Nombre del Cliente</label><input type="text" id="client-name" class="input-field w-full p-2" placeholder="Ej: Juan Pérez" required></div><div><label for="client-phone" class="block text-sm font-medium mb-1">Teléfono (WhatsApp)</label><input type="tel" id="client-phone" class="input-field w-full p-2" placeholder="Ej: 88887777"></div><div><label for="product-purchased" class="block text-sm font-medium mb-1">Producto Comprado</label><select id="product-purchased" class="input-field w-full p-2" required></select></div><div id="other-product-wrapper" class="hidden"><label for="other-product-name" class="block text-sm font-medium mb-1">Nombre del Producto Personalizado</label><input type="text" id="other-product-name" class="input-field w-full p-2" placeholder="Escribe el nombre del producto"></div><div class="grid grid-cols-2 gap-4"><div><label for="price" class="block text-sm font-medium mb-1">Precio</label><input type="number" id="price" class="input-field w-full p-2" placeholder="0.00" step="0.01" required></div><div><label for="discount" class="block text-sm font-medium mb-1">Descuento</label><input type="number" id="discount" class="input-field w-full p-2" placeholder="0.00" step="0.01" value="0"></div></div><div><label for="paid-amount" class="block text-sm font-medium mb-1">Monto Pagado</label><input type="number" id="paid-amount" class="input-field w-full p-2" placeholder="0.00" step="0.01" value="0"></div><div class="grid grid-cols-2 gap-4"><div><label for="purchase-date" class="block text-sm font-medium mb-1">Fecha de Compra</label><input type="date" id="purchase-date" class="input-field w-full p-2" required></div><div><label for="warranty-days" class="block text-sm font-medium mb-1">Garantía (días)</label><input type="number" id="warranty-days" class="input-field w-full p-2" placeholder="Ej: 90" value="90" min="0" required></div></div><div><label for="receipt-photo-url" class="block text-sm font-medium mb-1">URL del Comprobante</label><input type="url" id="receipt-photo-url" class="input-field w-full p-2" placeholder="https://url/foto.png"></div><div class="flex items-center"><input id="delivered" type="checkbox" class="h-4 w-4 rounded border-gray-500 text-blue-400 focus:ring-blue-500 bg-gray-800"><label for="delivered" class="ml-2 block text-sm">Marcar como Entregado</label></div><button type="submit" class="btn btn-primary w-full text-white font-bold py-3 px-4">Agregar Cliente</button></form></div></div>
+                <div class="lg:col-span-2 fade-in-delay-2"><div class="card p-6"><h2 class="text-2xl font-bold text-white mb-6">Registro de Clientes</h2><div class="overflow-x-auto"><table class="min-w-full text-sm text-left"><thead class="table-header"><tr><th scope="col" class="px-6 py-4 font-semibold text-gray-300">Cliente / Producto</th><th scope="col" class="px-6 py-4 font-semibold text-gray-300">Fechas y Garantía</th><th scope="col" class="px-6 py-4 font-semibold text-gray-300">Pagos</th><th scope="col" class="px-6 py-4 font-semibold text-gray-300">Estado</th><th scope="col" class="px-6 py-4 font-semibold text-gray-300">Acciones</th></tr></thead><tbody id="clients-table-body"></tbody></table><p id="no-clients-message" class="text-center text-gray-400 py-8">Aún no hay clientes registrados.</p></div></div></div>
+                <div class="lg:col-span-3 mt-4 fade-in-delay-3">
+                     <div class="card p-6">
+                        <h2 class="text-2xl font-bold text-white mb-6 text-center">Síguenos en Redes Sociales</h2>
+                        <div class="flex justify-center items-center gap-8 sm:gap-16">
+                            <a href="https://www.instagram.com/liontech_solutionscr" target="_blank" rel="noopener noreferrer" class="flex flex-col items-center text-gray-300 hover:text-white transition transform hover:scale-110">
+                                <img src="https://ccodvaipvskwzbjhybxs.supabase.co/storage/v1/object/public/logos/imagen_2025-10-05_170539308.png" alt="Instagram" class="w-16 h-16 mb-2 rounded-full">
+                                <span class="text-sm font-semibold">@liontech_solutionscr</span>
+                            </a>
+                             <a href="https://www.facebook.com/PauCr2" target="_blank" rel="noopener noreferrer" class="flex flex-col items-center text-gray-300 hover:text-white transition transform hover:scale-110">
+                                <img src="https://ccodvaipvskwzbjhybxs.supabase.co/storage/v1/object/public/logos/imagen_2025-10-05_170709695.png" alt="Facebook" class="w-16 h-16 mb-2 rounded-full">
+                                <span class="text-sm font-semibold">PauCr2</span>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </main>
+             <footer class="text-center py-8 text-sm text-gray-500 fade-in-delay-3"><p>Creado por Fabian Carvajal, Empresario de Amway</p></footer>
+        </div>
+    </div>
+
+    <!-- Modal para Editar Cliente -->
+     <div id="edit-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center modal-overlay">
+        <div class="card rounded-lg shadow-xl p-6 w-full max-w-lg m-4 overflow-y-auto max-h-screen">
+             <div class="flex justify-between items-center mb-4"><h2 class="text-2xl font-bold text-white">Editar Venta</h2><button onclick="closeEditModal()" class="text-gray-400 hover:text-white text-3xl">&times;</button></div><form id="edit-client-form" class="space-y-4"><input type="hidden" id="edit-client-id"><div><label for="edit-client-name" class="block text-sm font-medium mb-1">Nombre del Cliente</label><input type="text" id="edit-client-name" class="input-field w-full p-2" required></div><div><label for="edit-client-phone" class="block text-sm font-medium mb-1">Teléfono (WhatsApp)</label><input type="tel" id="edit-client-phone" class="input-field w-full p-2"></div><div><label for="edit-product-purchased" class="block text-sm font-medium mb-1">Producto Comprado</label><select id="edit-product-purchased" class="input-field w-full p-2" required></select></div><div id="edit-other-product-wrapper" class="hidden"><label for="edit-other-product-name" class="block text-sm font-medium mb-1">Nombre del Producto Personalizado</label><input type="text" id="edit-other-product-name" class="input-field w-full p-2" placeholder="Escribe el nombre del producto"></div><div class="grid grid-cols-2 gap-4"><div><label for="edit-price" class="block text-sm font-medium">Precio</label><input type="number" id="edit-price" class="input-field w-full p-2" step="0.01" required></div><div><label for="edit-discount" class="block text-sm font-medium">Descuento</label><input type="number" id="edit-discount" class="input-field w-full p-2" step="0.01"></div></div><div><label for="edit-paid-amount" class="block text-sm font-medium mb-1">Monto Pagado</label><input type="number" id="edit-paid-amount" class="input-field w-full p-2" step="0.01"></div><div class="grid grid-cols-2 gap-4"><div><label for="edit-purchase-date" class="block text-sm font-medium mb-1">Fecha de Compra</label><input type="date" id="edit-purchase-date" class="input-field w-full p-2" required></div><div><label for="edit-warranty-days" class="block text-sm font-medium mb-1">Garantía (días)</label><input type="number" id="edit-warranty-days" class="input-field w-full p-2" min="0" required></div></div><div><label for="edit-receipt-photo-url" class="block text-sm font-medium mb-1">URL del Comprobante</label><input type="url" id="edit-receipt-photo-url" class="input-field w-full p-2"></div><div class="flex items-center"><input id="edit-delivered" type="checkbox" class="h-4 w-4 rounded bg-gray-700"><label for="edit-delivered" class="ml-2 block text-sm">Marcar como Entregado</label></div><div class="flex justify-end space-x-4"><button type="button" onclick="closeEditModal()" class="btn btn-secondary text-white font-bold py-2 px-4">Cancelar</button><button type="submit" class="btn btn-primary text-white font-bold py-2 px-4">Guardar Cambios</button></div></form>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const supabaseUrl = 'https://ccodvaipvskwzbjhybxs.supabase.co'; 
+            const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNjb2R2YWlwdnNrd3piamh5YnhzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk2MjY2ODYsImV4cCI6MjA3NTIwMjY4Nn0.30iZCV1rX4_vIYoO2ApGq5hBOICjbv9oD1ws1s96eEU';
+            const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
+
+            async function initializeApp(user) {
+                const { data: empresarioData } = await supabaseClient.from('empresarios').select('nombre').eq('id', user.id).single();
+                if(empresarioData) { document.getElementById('welcome-title').textContent = `Bienvenido, ${empresarioData.nombre}`; }
+
+                const products = [ { name: 'Nutrilite Double X' }, { name: 'Proteína Vegetal en Polvo' }, { name: 'Artistry Skin Nutrition' }, { name: 'Satinique Shampoo' }, { name: 'L.O.C. Limpiador Multiusos' }, { name: 'SA8 Detergente en Polvo' }, { name: 'Glister Pasta de Dientes' }, { name: 'Otro' } ];
+                const addForm = document.getElementById('add-client-form'), clientsTableBody = document.getElementById('clients-table-body'), noClientsMessage = document.getElementById('no-clients-message'), productPurchasedSelect = document.getElementById('product-purchased'), otherProductWrapper = document.getElementById('other-product-wrapper'), otherProductName = document.getElementById('other-product-name'), editModal = document.getElementById('edit-modal'), editForm = document.getElementById('edit-client-form'), editProductSelect = document.getElementById('edit-product-purchased'), editOtherProductWrapper = document.getElementById('edit-other-product-wrapper'), editOtherProductName = document.getElementById('edit-other-product-name'), logoutButton = document.getElementById('logout-button');
+                let clients = [], inactivityTimer;
+
+                const logout = async () => { await supabaseClient.auth.signOut(); location.reload(); };
+                const resetInactivityTimer = () => { clearTimeout(inactivityTimer); inactivityTimer = setTimeout(logout, 5 * 60 * 1000); };
+                const fetchClients = async () => { const { data, error } = await supabaseClient.from('amway_clientes').select('*').eq('empresario_uuid', user.id).order('created_at', { ascending: false }); if (error) { console.error('Error fetching clients:', error); alert(`Error al cargar clientes: ${error.message}`); } else { clients = data; renderClients(); } };
+                const renderProducts = () => { const selects = [productPurchasedSelect, editProductSelect]; selects.forEach(s => { s.innerHTML = `<option value="" disabled selected>Selecciona un producto</option>`; }); products.forEach(p => { selects.forEach(s => { const o = document.createElement('option'); o.value = p.name; o.textContent = p.name; s.appendChild(o); }); }); };
+                
+                const renderClients = () => {
+                    clientsTableBody.innerHTML = ''; noClientsMessage.style.display = clients.length === 0 ? 'block' : 'none';
+                    clients.forEach((client) => {
+                        const purchaseDate = new Date(client.purchasedate + 'T00:00:00'); let warrantyCellHTML = '<p class="text-gray-500">Sin Garantía</p>';
+                        if (client.warrantydays > 0) { const warrantyEndDate = new Date(purchaseDate); warrantyEndDate.setDate(warrantyEndDate.getDate() + client.warrantydays); const isWarrantyExpired = new Date() > warrantyEndDate; warrantyCellHTML = `<p class="${isWarrantyExpired ? 'text-red-400' : 'text-green-400'}">Vence: ${warrantyEndDate.toLocaleDateString('es-ES')}</p>`; }
+                        let paymentStatusClass = client.paidamount >= client.total ? 'badge-paid' : (client.paidamount > 0 ? 'badge-partial' : 'badge-pending'); let paymentStatusText = client.paidamount >= client.total ? 'Pagado' : (client.paidamount > 0 ? 'Abonado' : 'Pendiente'); let receiptLink = client.receipt ? `<a href="${client.receipt}" target="_blank" class="text-blue-400 hover:underline">Ver Foto</a>` : `<span class="text-gray-500">N/A</span>`;
+                        const row = document.createElement('tr'); row.className = 'border-b border-gray-800';
+                        row.innerHTML = `<td class="px-6 py-4"><p class="font-medium text-white">${client.name}</p><p class="text-xs text-gray-400">${client.product}</p>${client.phone ? `<p class="text-xs text-blue-400 mt-1">${client.phone}</p>` : ''}</td><td class="px-6 py-4 text-xs"><p>Compra: ${purchaseDate.toLocaleDateString('es-ES')}</p>${warrantyCellHTML}</td><td class="px-6 py-4 text-xs"><p>Total: ${client.total.toFixed(2)}</p><p>Pagado: ${client.paidamount.toFixed(2)}</p><p>Resta: ${(client.total - client.paidamount).toFixed(2)}</p></td><td class="px-6 py-4"><span class="status-badge ${paymentStatusClass}">${paymentStatusText}</span></td><td class="px-6 py-4"><div class="flex items-center space-x-2"><button class="p-2 rounded-md hover:bg-gray-700 transition" onclick="openEditModal(${client.id})" title="Editar"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-blue-400" viewBox="0 0 20 20" fill="currentColor"><path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z" /><path fill-rule="evenodd" d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" clip-rule="evenodd" /></svg></button><button class="p-2 rounded-md hover:bg-gray-700 transition" onclick="deleteClient(${client.id})" title="Eliminar"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-red-400" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clip-rule="evenodd" /></svg></button>${client.phone ? `<button class="p-2 rounded-md hover:bg-gray-700 transition" onclick="sendWhatsApp(${client.id})" title="Enviar WhatsApp"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-green-400" viewBox="0 0 20 20" fill="currentColor"><path d="M10.223 1.012a9.778 9.778 0 00-7.22 3.193 9.77 9.77 0 00-2.4 8.657l.118 1.168-1.554 4.542 4.653-1.53.948.552a9.78 9.78 0 008.455 0l.948-.552 4.653 1.53-1.554-4.542.118-1.168a9.77 9.77 0 00-2.4-8.657 9.778 9.778 0 00-7.22-3.193zM5.533 13.916c-.225-.45 0-.817.398-1.121l.156-.123c.319-.252.502-.562.502-.923 0-.361-.183-.671-.502-.923l-.156-.123c-.398-.304-.623-.671-.398-1.121.225-.45.719-.607 1.213-.607h.001c.208 0 .416.038.618.11l.006.003c.51.192.83.67 1.038 1.155.208.485.208 1.026 0 1.511-.208.485-.527.963-1.038 1.155l-.006.003c-.202.072-.41.11-.618.11h-.001c-.494 0-.988-.157-1.213-.607zm5.334 0c-.225-.45 0-.817.398-1.121l.156-.123c.319-.252.502-.562.502-.923 0-.361-.183-.671-.502-.923l-.156-.123c-.398-.304-.623-.671-.398-1.121.225-.45.719-.607 1.213-.607h.001c.208 0 .416.038.618.11l.006.003c.51.192.83.67 1.038 1.155.208.485.208 1.026 0 1.511-.208.485-.527.963-1.038 1.155l-.006.003c-.202.072-.41.11-.618.11h-.001c-.494 0-.988-.157-1.213-.607z" /></svg></button>` : ''}</div><div class="mt-2 text-xs">${receiptLink}</div></td>`;
+                        clientsTableBody.appendChild(row);
+                    });
+                };
+
+                const addClient = async (e) => { e.preventDefault(); let pName = addForm['product-purchased'].value; if(pName === 'Otro') pName = addForm['other-product-name'].value; const nClient = { name: addForm['client-name'].value, phone: addForm['client-phone'].value, product: pName, purchasedate: addForm['purchase-date'].value, warrantydays: parseInt(addForm['warranty-days'].value,10)||0, receipt: addForm['receipt-photo-url'].value||null, price: parseFloat(addForm['price'].value)||0, discount: parseFloat(addForm['discount'].value)||0, total: (parseFloat(addForm['price'].value)||0)-(parseFloat(addForm['discount'].value)||0), paidamount: parseFloat(addForm['paid-amount'].value)||0, delivered: addForm['delivered'].checked, empresario_uuid: user.id }; const {error} = await supabaseClient.from('amway_clientes').insert([nClient]); if(error){console.error(error);alert('No se pudo agregar el cliente.');}else{await fetchClients();addForm.reset();addForm['warranty-days'].value=90;otherProductWrapper.classList.add('hidden');otherProductName.required=false;} };
+                const saveClientChanges = async (e) => { e.preventDefault(); const cId = document.getElementById('edit-client-id').value; if(!cId) return; let pName = editForm['edit-product-purchased'].value; if(pName === 'Otro') pName = editForm['edit-other-product-name'].value; const uClient = { name: editForm['edit-client-name'].value, phone: editForm['edit-client-phone'].value, product: pName, price: parseFloat(editForm['edit-price'].value)||0, discount: parseFloat(editForm['edit-discount'].value)||0, total: (parseFloat(editForm['edit-price'].value)||0)-(parseFloat(editForm['edit-discount'].value)||0), paidamount: parseFloat(editForm['edit-paid-amount'].value)||0, purchasedate: editForm['edit-purchase-date'].value, warrantydays: parseInt(editForm['edit-warranty-days'].value,10)||0, receipt: editForm['edit-receipt-photo-url'].value, delivered: editForm['edit-delivered'].checked }; const {error} = await supabaseClient.from('amway_clientes').update(uClient).eq('id', cId); if(error){console.error(error);alert('No se pudo actualizar.');}else{await fetchClients();closeEditModal();} };
+                window.deleteClient = async (id) => { if (window.confirm('¿Seguro?')) { const {error} = await supabaseClient.from('amway_clientes').delete().eq('id', id); if(error){console.error(error);alert('No se pudo eliminar.');}else{await fetchClients();} } };
+                window.openEditModal = (id) => { const client = clients.find(c=>c.id===id); if(!client)return; document.getElementById('edit-client-id').value=client.id; editForm['edit-client-name'].value=client.name; editForm['edit-client-phone'].value=client.phone; const isStd = products.some(p=>p.name===client.product); if(isStd){editForm['edit-product-purchased'].value=client.product; editOtherProductWrapper.classList.add('hidden'); editOtherProductName.required=false; editOtherProductName.value='';}else{editForm['edit-product-purchased'].value='Otro'; editOtherProductWrapper.classList.remove('hidden'); editOtherProductName.required=true; editOtherProductName.value=client.product;} editForm['edit-price'].value=client.price; editForm['edit-discount'].value=client.discount; editForm['edit-paid-amount'].value=client.paidamount; editForm['edit-purchase-date'].value=client.purchasedate; editForm['edit-warranty-days'].value=client.warrantydays; editForm['edit-receipt-photo-url'].value=client.receipt; editForm['edit-delivered'].checked=client.delivered; editModal.classList.remove('hidden'); editModal.querySelector('.card').classList.add('modal-scale-in'); };
+                window.closeEditModal = () => { const mC = editModal.querySelector('.card'); mC.classList.remove('modal-scale-in'); mC.classList.add('modal-scale-out'); setTimeout(()=>{editModal.classList.add('hidden'); mC.classList.remove('modal-scale-out');},300); };
+                window.sendWhatsApp = (id) => { const client=clients.find(c=>c.id===id); if(!client||!client.phone){alert('Cliente sin teléfono.');return;} const phoneNum=client.phone.replace(/\D/g,''); const fullNum=phoneNum.length>8?phoneNum:'506'+phoneNum; let msg=`¡Hola ${client.name}! Gracias por tu compra de *${client.product}*. ¡Que lo disfrutes!`; if(client.receipt){msg+=`\n\nComprobante:\n${client.receipt}`;} const encodedMsg=encodeURIComponent(msg); window.open(`https://wa.me/${fullNum}?text=${encodedMsg}`,'_blank'); };
+
+                addForm.addEventListener('submit', addClient);
+                editForm.addEventListener('submit', saveClientChanges);
+                logoutButton.addEventListener('click', logout);
+                productPurchasedSelect.addEventListener('change', (e) => { if(e.target.value==='Otro'){ otherProductWrapper.classList.remove('hidden'); otherProductName.required=true; } else { otherProductWrapper.classList.add('hidden'); otherProductName.required=false; } });
+                editProductSelect.addEventListener('change', (e) => { if(e.target.value==='Otro'){ editOtherProductWrapper.classList.remove('hidden'); editOtherProductName.required=true; } else { editOtherProductWrapper.classList.add('hidden'); editOtherProductName.required=false; } });
+                ['load','mousemove','mousedown','click','scroll','keypress'].forEach(evt => document.addEventListener(evt, resetInactivityTimer, false));
+                renderProducts();
+                await fetchClients();
+            }
+
+            // --- AUTH LOGIC & INITIAL PAGE LOAD ---
+            const authOverlay = document.getElementById('auth-overlay');
+            const mainContent = document.getElementById('main-content');
+            const loginView = document.getElementById('login-view');
+            const registerView = document.getElementById('register-view');
+            const magicLinkView = document.getElementById('magic-link-view');
+            const showRegisterBtn = document.getElementById('show-register');
+            const showLoginBtn = document.getElementById('show-login');
+            const showMagicLinkBtn = document.getElementById('show-magic-link');
+            const showLoginFromMagicBtn = document.getElementById('show-login-from-magic');
+            const loginForm = document.getElementById('login-form');
+            const registerForm = document.getElementById('register-form');
+            const magicLinkForm = document.getElementById('magic-link-form');
+            
+            const setLoading = (button, isLoading) => {
+                const text = button.querySelector('span');
+                if (isLoading) {
+                    button.disabled = true;
+                    if(text) text.classList.add('hidden');
+                    if (!button.querySelector('.spinner')) {
+                        const spinner = document.createElement('div');
+                        spinner.className = 'spinner';
+                        button.prepend(spinner);
+                    }
+                } else {
+                    button.disabled = false;
+                    if(text) text.classList.remove('hidden');
+                    const spinner = button.querySelector('.spinner');
+                    if (spinner) spinner.remove();
+                }
+            };
+
+            showRegisterBtn.addEventListener('click', () => { loginView.classList.add('hidden'); registerView.classList.remove('hidden'); magicLinkView.classList.add('hidden'); });
+            showLoginBtn.addEventListener('click', () => { registerView.classList.add('hidden'); loginView.classList.remove('hidden'); magicLinkView.classList.add('hidden'); });
+            showMagicLinkBtn.addEventListener('click', () => { loginView.classList.add('hidden'); magicLinkView.classList.remove('hidden'); });
+            showLoginFromMagicBtn.addEventListener('click', () => { magicLinkView.classList.add('hidden'); loginView.classList.remove('hidden'); });
+
+            loginForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const button = loginForm.querySelector('button[type="submit"]');
+                setLoading(button, true);
+                const { error } = await supabaseClient.auth.signInWithPassword({ email: document.getElementById('login-email').value, password: document.getElementById('login-password').value });
+                if (error) { const msg = document.getElementById('login-error-message'); msg.textContent = 'Email o contraseña incorrectos.'; msg.classList.remove('hidden'); }
+                setLoading(button, false);
+            });
+
+            registerForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const button = registerForm.querySelector('button[type="submit"]');
+                setLoading(button, true);
+                const { error } = await supabaseClient.auth.signUp({
+                    email: document.getElementById('register-email').value,
+                    password: document.getElementById('register-password').value,
+                    options: {
+                        data: {
+                            nombre: document.getElementById('register-name').value,
+                            empresario_id: document.getElementById('register-amway-id').value
+                        }
+                    }
+                });
+                
+                const errMsg = document.getElementById('register-error-message');
+                if (error) { 
+                    errMsg.textContent = "Error al registrar: " + error.message; 
+                    errMsg.classList.remove('hidden'); 
+                } else {
+                    alert('¡Registro exitoso! Ya puedes iniciar sesión.');
+                    registerView.classList.add('hidden');
+                    loginView.classList.remove('hidden');
+                }
+                setLoading(button, false);
+            });
+
+            magicLinkForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const button = magicLinkForm.querySelector('button[type="submit"]');
+                setLoading(button, true);
+                const email = document.getElementById('magic-link-email').value;
+                const { error } = await supabaseClient.auth.signInWithOtp({ email });
+                const errorMsg = document.getElementById('magic-link-error');
+                const successMsg = document.getElementById('magic-link-success');
+                if (error) {
+                    successMsg.classList.add('hidden');
+                    errorMsg.textContent = 'Error: ' + error.message;
+                    errorMsg.classList.remove('hidden');
+                } else {
+                    errorMsg.classList.add('hidden');
+                    successMsg.classList.remove('hidden');
+                }
+                setLoading(button, false);
+            });
+
+            supabaseClient.auth.onAuthStateChange((event, session) => {
+                if (session?.user) { authOverlay.classList.add('hidden'); mainContent.classList.remove('hidden'); initializeApp(session.user); } 
+                else { mainContent.classList.add('hidden'); authOverlay.classList.remove('hidden'); }
+            });
+
+            particlesJS("particles-js", { "particles": { "number": { "value": 100, "density": { "enable": true, "value_area": 800 } }, "color": { "value": "#ffffff" }, "shape": { "type": "circle" }, "opacity": { "value": 0.3, "random": true, "anim": { "enable": true, "speed": 0.5, "opacity_min": 0.05, "sync": false } }, "size": { "value": 2.5, "random": true, "anim": { "enable": true, "speed": 2, "size_min": 0.1, "sync": false } }, "line_linked": { "enable": true, "distance": 120, "color": "#ffffff", "opacity": 0.1, "width": 1 }, "move": { "enable": true, "speed": 1, "direction": "none", "random": true, "straight": false, "out_mode": "out", "bounce": false } }, "interactivity": { "detect_on": "canvas", "events": { "onhover": { "enable": true, "mode": "grab" }, "onclick": { "enable": false }, "resize": true }, "modes": { "grab": { "distance": 140, "line_linked": { "opacity": 0.5 } } } }, "retina_detect": true });
+        });
+    </script>
+</body>
+</html>
+
